@@ -79,7 +79,7 @@ struct tgsi_opcode_info
    unsigned pre_dedent:1;
    unsigned post_indent:1;
    enum tgsi_output_mode output_mode:4;
-   enum tgsi_opcode opcode:10;
+   unsigned opcode:10; /* enum tgsi_opcode; plain bits: arm-none-eabi enums are short */
 };
 
 const struct tgsi_opcode_info *

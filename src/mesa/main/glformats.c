@@ -3817,10 +3817,11 @@ uint32_t
 _mesa_tex_format_from_format_and_type(const struct gl_context *ctx,
                                       GLenum gl_format, GLenum type)
 {
-   mesa_format format = _mesa_format_from_format_and_type(gl_format, type);
-
-   if (_mesa_format_is_mesa_array_format(format))
-      format = _mesa_format_from_array_format(format);
+   /* uint32_t, not mesa_format: see st_choose_matching_format. */
+   uint32_t from = _mesa_format_from_format_and_type(gl_format, type);
+   if (_mesa_format_is_mesa_array_format(from))
+      from = _mesa_format_from_array_format(from);
+   mesa_format format = from;
       
    if (format == MESA_FORMAT_NONE || !ctx->TextureFormatSupported[format])
       return MESA_FORMAT_NONE;

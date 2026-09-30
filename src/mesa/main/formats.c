@@ -1468,9 +1468,11 @@ _mesa_format_matches_format_and_type(mesa_format mformat,
    if (format == GL_COLOR_INDEX)
       return false;
 
-   mesa_format other_format = _mesa_format_from_format_and_type(format, type);
-   if (_mesa_format_is_mesa_array_format(other_format))
-      other_format = _mesa_format_from_array_format(other_format);
+   /* uint32_t, not mesa_format: see st_choose_matching_format. */
+   uint32_t from = _mesa_format_from_format_and_type(format, type);
+   if (_mesa_format_is_mesa_array_format(from))
+      from = _mesa_format_from_array_format(from);
+   mesa_format other_format = from;
 
    return other_format == mformat;
 }

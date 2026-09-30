@@ -1220,9 +1220,13 @@ st_choose_matching_format(struct st_context *st, unsigned bind,
    if (swapBytes && !_mesa_swap_bytes_in_type_enum(&type))
       return PIPE_FORMAT_NONE;
 
-   mesa_format mesa_format = _mesa_format_from_format_and_type(format, type);
-   if (_mesa_format_is_mesa_array_format(mesa_format))
-      mesa_format = _mesa_format_from_array_format(mesa_format);
+   /* uint32_t, not mesa_format -- the result may be a
+    * MESA_ARRAY_FORMAT (bit 31), and arm-none-eabi's short enums made
+    * mesa_format 16 bits wide, truncating it to a bogus format number. */
+   uint32_t from = _mesa_format_from_format_and_type(format, type);
+   if (_mesa_format_is_mesa_array_format(from))
+      from = _mesa_format_from_array_format(from);
+   mesa_format mesa_format = from;
    if (mesa_format != MESA_FORMAT_NONE) {
       enum pipe_format format = st_mesa_format_to_pipe_format(st, mesa_format);
       if (format != PIPE_FORMAT_NONE &&
