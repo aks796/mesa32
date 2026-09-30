@@ -458,6 +458,12 @@ st_update_renderbuffer_surface(struct st_context *st,
 {
    struct pipe_context *pipe = st->pipe;
    struct pipe_resource *resource = strb->texture;
+   /* No storage (see st_render_texture): nothing to make a surface of.
+    * Mesa asserts this away; the release build dereferenced NULL. */
+   if (!resource) {
+      pipe_surface_reference(&strb->surface, NULL);
+      return;
+   }
    const struct st_texture_object *stTexObj = NULL;
    unsigned rtt_width = strb->Base.Width;
    unsigned rtt_height = strb->Base.Height;
@@ -582,7 +588,17 @@ st_render_texture(struct gl_context *ctx,
    pt = get_teximage_resource(att->Texture,
                               att->CubeMapFace,
                               att->TextureLevel);
-   assert(pt);
+   if (!pt) {
+      /* A texture image without storage (never specified, or its
+       * allocation failed) attached to a framebuffer. Other GLES drivers
+       * leave such an attachment incomplete; release Mesa pointed the
+       * renderbuffer at NULL and crashed on the next framebuffer update. */
+      strb->is_rtt = FALSE;
+      pipe_resource_reference(&strb->texture, NULL);
+      pipe_surface_reference(&strb->surface, NULL);
+      ctx->NewState |= _NEW_BUFFERS;
+      return;
+   }
 
    /* point renderbuffer at texobject */
    strb->is_rtt = TRUE;
