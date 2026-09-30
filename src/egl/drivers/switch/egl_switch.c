@@ -272,6 +272,10 @@ switch_create_window_surface(_EGLDriver *drv, _EGLDisplay *dpy,
 
     // Allocate framebuffers and attach them to the native window
     nwindowGetDimensions(surface->nw, &width, &height);
+    // eglQuerySurface(EGL_WIDTH/EGL_HEIGHT) answers from these; they
+    // were left 0.
+    surface->base.Width = width;
+    surface->base.Height = height;
     fb->display = display;
     fb->surface = surface;
     fb->template.target = PIPE_TEXTURE_RECT;
