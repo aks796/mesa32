@@ -75,11 +75,13 @@ nvc0_screen_is_format_supported(struct pipe_screen *pscreen,
          return false;
 
    /* Restrict ETC2 and ASTC formats here. These are only supported on GK20A
-    * and GM20B.
+    * and GM20B. The Switch's GM20B is reported as 0x120 by its libdrm (the
+    * nvgpu architecture alone, without the implementation's 0xb).
     */
    if ((desc->layout == UTIL_FORMAT_LAYOUT_ETC ||
         desc->layout == UTIL_FORMAT_LAYOUT_ASTC) &&
        nouveau_screen(pscreen)->device->chipset != 0x12b &&
+       nouveau_screen(pscreen)->device->chipset != 0x120 &&
        nouveau_screen(pscreen)->class_3d != NVEA_3D_CLASS)
       return false;
 
