@@ -64,7 +64,11 @@ static inline thrd_t u_thread_create(int (*routine)(void *), void *param)
    int ret;
    ret = thrd_create( &thread, routine, param );
 #endif
-   if (ret)
+   /* newlib's C11 threads (devkitARM, the Switch) define
+    * thrd_success as 4, FreeBSD's value: any non-zero result is not a
+    * failure. Callers (u_queue: glthread and the shader cache) gave up on
+    * threads that were running. */
+   if (ret != thrd_success)
       return 0;
 
    return thread;
