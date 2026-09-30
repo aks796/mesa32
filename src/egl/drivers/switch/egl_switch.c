@@ -447,6 +447,28 @@ switch_add_configs_for_visuals(_EGLDisplay *dpy)
     return EGL_TRUE;
 }
 
+// glthread: GL calls of a context whose thread was started with
+// switch_egl_start_glthread are executed by a worker thread. Called on that
+// worker once, when it starts; the program may hook it (priority, cores).
+void switch_egl_glthread_hook(void) __attribute__((weak));
+
+static void
+switch_st_set_background_context(struct st_context_iface *stctx,
+                                 struct util_queue_monitoring *queue_info)
+{
+    if (switch_egl_glthread_hook)
+        switch_egl_glthread_hook();
+}
+
+// The pipe context may be used by one thread at a time: before the calling
+// thread touches it itself (swap, make current), the worker finishes.
+static void
+switch_glthread_finish(struct switch_egl_context *context)
+{
+    if (context && context->stctx && context->stctx->thread_finish)
+        context->stctx->thread_finish(context->stctx);
+}
+
 // Called from st_api_create_context. This is only ever used for detecting
 // whether the ST_MANAGER_BROKEN_INVALIDATE workaround is required.
 static int
@@ -490,6 +512,7 @@ switch_initialize(_EGLDriver *drv, _EGLDisplay *dpy)
     }
 
     stmgr->get_param = switch_st_get_param;
+    stmgr->set_background_context = switch_st_set_background_context;
 
     // Create nouveau screen
     TRACE("Creating nouveau screen\n");
@@ -644,6 +667,10 @@ switch_make_current(_EGLDriver* drv, _EGLDisplay* dpy, _EGLSurface *dsurf,
     _EGLContext *old_ctx;
     _EGLSurface *old_dsurf, *old_rsurf;
 
+    _EGLContext *cur = _eglGetCurrentContext();
+    if (cur)
+        switch_glthread_finish(switch_egl_context(cur));
+
     if (!_eglBindContext(ctx, dsurf, rsurf, &old_ctx, &old_dsurf, &old_rsurf))
         return EGL_FALSE;
 
@@ -682,6 +709,8 @@ switch_swap_buffers(_EGLDriver *drv, _EGLDisplay *dpy, _EGLSurface *surf)
     struct switch_egl_surface* surface = switch_egl_surface(surf);
     struct switch_egl_context* context = switch_egl_context(surface->base.CurrentContext);
 
+    switch_glthread_finish(context);
+
     if (surface->cur_slot < 0) {
         TRACE("Nothing to do\n");
         return EGL_TRUE;
@@ -713,6 +742,33 @@ switch_swap_buffers(_EGLDriver *drv, _EGLDisplay *dpy, _EGLSurface *surf)
     surface->attachments[ST_ATTACHMENT_FRONT_LEFT] = old_back;
     p_atomic_inc(&surface->stfbi->stamp);
     return EGL_TRUE;
+}
+
+
+/*
+ * Start glthread for a context (Mesa's dri frontend does this at
+ * context creation when the mesa_glthread option is set). Call it before the
+ * context is first made current, from the thread that will use it.
+ */
+PUBLIC EGLBoolean
+switch_egl_start_glthread(EGLDisplay dpy_handle, EGLContext ctx_handle);
+
+PUBLIC EGLBoolean
+switch_egl_start_glthread(EGLDisplay dpy_handle, EGLContext ctx_handle)
+{
+    _EGLDisplay *dpy = _eglLookupDisplay(dpy_handle);
+    if (!dpy)
+        return EGL_FALSE;
+    mtx_lock(&dpy->Mutex);
+    _EGLContext *ctx = _eglLookupContext(ctx_handle, dpy);
+    struct switch_egl_context *context = ctx ? switch_egl_context(ctx) : NULL;
+    EGLBoolean ok = EGL_FALSE;
+    if (context && context->stctx && context->stctx->start_thread) {
+        context->stctx->start_thread(context->stctx);
+        ok = EGL_TRUE;
+    }
+    mtx_unlock(&dpy->Mutex);
+    return ok;
 }
 
 
